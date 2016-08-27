@@ -15,7 +15,7 @@
   "main": "./app/updater.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/edjafarov/node-webkit-updater.git"
+    "url": "https://github.com/nicola89bs/node-webkit-updater.git"
   },
   "bugs": {
     "url": "https://github.com/edjafarov/node-webkit-updater/issues"
@@ -26,11 +26,12 @@
     "test": "node node_modules/grunt-cli/bin/grunt clean mochaTest"
   },
   "dependencies": {
+    "cpr": "^2.0.0",
+    "del": "~0.1.2",
     "ncp": "2.0.0",
     "request": "~2.64.0",
-    "tar.gz": "^0.1.1",
-    "del": "~0.1.2",
-    "semver": "^5.0.3"
+    "semver": "^5.0.3",
+    "tar.gz": "^0.1.1"
   },
   "devDependencies": {
     "chai": "^1.9.1",

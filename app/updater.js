@@ -4,7 +4,7 @@
   var fs = require('fs');
   var exec = require('child_process').exec;
   var spawn = require('child_process').spawn;
-  var ncp = require('ncp');
+  var cpr = require('cpr');
   var del = require('del');
   var semver = require('semver');
 
@@ -21,11 +21,14 @@
    * @param {object} manifest - See the [manifest schema](#manifest-schema) below.
    * @param {object} options - Optional
    * @property {string} options.temporaryDirectory - (Optional) path to a directory to download the updates to and unpack them in. Defaults to [`os.tmpdir()`](https://nodejs.org/api/os.html#os_os_tmpdir)
+   * @property {string} options.toolsDirectory - (Optional) path to a directory with the tools to be used. Defaults to  __dirname + '/tools'
    */
   function updater(manifest, options){
     this.manifest = manifest;
     this.options = {
-      temporaryDirectory: options && options.temporaryDirectory || os.tmpdir()
+      temporaryDirectory: options && options.temporaryDirectory || os.tmpdir(),
+      toolsDirectory: options && options.toolsDirectory || path.join(__dirname, 'tools'),
+      macExecFiles: options && options.macExecFiles || []
     };
   }
 
@@ -148,7 +151,8 @@
    * @param {object} manifest
    */
   updater.prototype.unpack = function(filename, cb, manifest){
-    pUnpack[platform](filename, cb, manifest, this.options.temporaryDirectory);
+    var args = [filename, cb, manifest, this.options.temporaryDirectory];
+    return pUnpack[platform].apply(this, args);
   };
 
   /**
@@ -197,7 +201,7 @@
       if(extension === ".zip"){
         exec('unzip -xo "' + filename + '" >/dev/null',{ cwd: destination }, function(err){
           if(err){
-            console.log(err);
+            console.info(err);
             return cb(err);
           }
           var appPath = path.join(destination, getExecPathRelativeToPackage(manifest));
@@ -210,6 +214,11 @@
         exec('hdiutil unmount /Volumes/'+path.basename(filename, '.dmg'), function(err){
           // create a CDR from the DMG to bypass any steps which require user interaction
           var cdrPath = filename.replace(/.dmg$/, '.cdr');
+          try {
+            fs.unlinkSync(cdrPath);
+          } catch (e) {
+            console.info(e)
+          }
           exec('hdiutil convert "' + filename + '" -format UDTO -o "' + cdrPath + '"', function(err){
             exec('hdiutil attach "' + cdrPath + '" -nobrowse', function(err){
               if(err) {
@@ -244,10 +253,11 @@
      * @private
      */
     win: function(filename, cb, manifest, temporaryDirectory){
+      var self = this;
       var destinationDirectory = getZipDestinationDirectory(filename, temporaryDirectory),
           unzip = function(){
             // unzip by C. Spieler (docs: https://www.mkssoftware.com/docs/man1/unzip.1.asp, issues: http://www.info-zip.org/)
-            exec( '"' + path.resolve(__dirname, 'tools/unzip.exe') + '" -u -o "' +
+            exec( '"' + path.resolve(self.options.toolsDirectory, 'unzip.exe') + '" -u -o "' +
                 filename + '" -d "' + destinationDirectory + '" > NUL', function(err){
               if(err){
                 return cb(err);
@@ -256,23 +266,12 @@
               cb(null, path.join(destinationDirectory, getExecPathRelativeToPackage(manifest)));
             });
           };
-
-      fs.exists(destinationDirectory, function(exists){
-        if(exists) {
-          del(destinationDirectory, {force: true}, function (err) {
-            if (err) {
-              cb(err);
-            }
-            else {
-              unzip();
-            }
-          });
-        }
-        else {
-          unzip();
-        }
-      });
-
+      var suffix = 0;
+      while (fs.existsSync(destinationDirectory + (suffix || ''))) {
+        suffix++;
+      }
+      destinationDirectory = destinationDirectory + (suffix || '');
+      unzip();
     },
     /**
      * @private
@@ -280,9 +279,9 @@
     linux32: function(filename, cb, manifest, temporaryDirectory){
       //filename fix
       exec('tar -zxvf "' + filename + '" >/dev/null',{cwd: temporaryDirectory}, function(err){
-        console.log(arguments);
+        console.info(arguments);
         if(err){
-          console.log(err);
+          console.info(err);
           return cb(err);
         }
         cb(null,path.join(temporaryDirectory, getExecPathRelativeToPackage(manifest)));
@@ -307,20 +306,26 @@
     /**
      * @private
      */
-    mac: function(appPath, args, options){
-      //spawn
-      if(args && args.length) {
-        args = [appPath].concat('--args', args);
-      } else {
-        args = [appPath];
-      }
-      return run('open', args, options);
+    mac: function(appPath, args, options, cb){
+      // //spawn
+      // if(args && args.length) {
+      //   args = [appPath].concat('--args', args);
+      // } else {
+      //   args = [appPath];
+      // }
+      // return run('open', args, options);
+      var relaunch_app = path.resolve(this.options.toolsDirectory, 'relaunch_app.sh');
+      var args2 = [relaunch_app, '1', appPath].concat(args || []);
+      return run('bash', args2, options, cb);
     },
     /**
      * @private
      */
     win: function(appPath, args, options, cb){
-      return run(appPath, args, options, cb);
+      var invis = path.resolve(this.options.toolsDirectory, 'invis.vbs');
+      var relaunch_app = path.resolve(this.options.toolsDirectory, 'relaunch_app.bat');
+      var args2 = [invis, relaunch_app, '1', appPath].concat(args || []);
+      return run('wscript.exe', args2, options, cb);
     },
     /**
      * @private
@@ -341,7 +346,8 @@
    */
   function run(path, args, options){
     var opts = {
-      detached: true
+      detached: true,
+      stdio: 'ignore'
     };
     for(var key in options){
       opts[key] = options[key];
@@ -365,47 +371,46 @@
      * @private
      */
     mac: function(to, cb){
-      ncp(this.getAppPath(), to, cb);
+      var self = this;
+      cpr(self.getAppPath(), to, {
+        deleteFirst: true
+      }, function(err){
+        if(err){
+          return cb(err);
+        }
+        console.info('Fixing permissions...');
+        var basePath = to;
+        console.info('basePath: ' + basePath);
+        console.info(self.options.macExecFiles);
+        self.options.macExecFiles.forEach(function (file) {
+          var filePath = path.join(basePath, file);
+          console.info(filePath);
+          fs.chmodSync(filePath, '755');
+        });
+        return cb();
+      });
     },
     /**
      * @private
      */
     win: function(to, cb){
       var self = this;
-      var errCounter = 50;
-      deleteApp(appDeleted);
-
-      function appDeleted(err){
+      cpr(self.getAppPath(), to, {
+        deleteFirst: true
+      }, function (err) {
         if(err){
-          errCounter--;
-          if(errCounter > 0) {
-            setTimeout(function(){
-              deleteApp(appDeleted);
-            }, 100);
-          } else {
-            return cb(err);
-          }
+          //TODO: do something if there is an error??
         }
-        else {
-          ncp(self.getAppPath(), to, appCopied);
-        }
-      }
-      function deleteApp(cb){
-        del(to, {force: true}, cb);
-      }
-      function appCopied(err){
-        if(err){
-          setTimeout(deleteApp, 100, appDeleted);
-          return
-        }
-        cb();
-      }
+        cb(err);
+      });
     },
     /**
      * @private
      */
     linux32: function(to, cb){
-      ncp(this.getAppPath(), to, cb);
+      cpr(this.getAppPath(), to, {
+        deleteFirst: true
+      }, cb);
     }
   };
   pInstall.linux64 = pInstall.linux32;
