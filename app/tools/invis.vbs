@@ -8,10 +8,10 @@ end if
 
 sargs = ""
 if num > 1 then
-    sargs = " "
+	sargs = " "
     for k = 1 to num - 1
     	anArg = args.Item(k)
-    	sargs = sargs & anArg & " "
+    	sargs = sargs & """" & anArg & """" & " "
     next
 end if
 

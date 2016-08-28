@@ -324,7 +324,7 @@
     win: function(appPath, args, options, cb){
       var invis = path.resolve(this.options.toolsDirectory, 'invis.vbs');
       var relaunch_app;
-      if(options.elevate){
+      if(options && options.elevate){
         relaunch_app = path.resolve(this.options.toolsDirectory, 'relaunch_app_admin.bat');
       }else{
         relaunch_app = path.resolve(this.options.toolsDirectory, 'relaunch_app.bat');        

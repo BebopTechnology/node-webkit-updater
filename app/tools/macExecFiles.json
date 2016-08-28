@@ -1,0 +1,12 @@
+[ "./Contents/MacOS/nwjs",
+  "./Contents/Versions/52.0.2743.116/nwjs Framework.framework/Helpers/crashpad_handler",
+  "./Contents/Versions/52.0.2743.116/nwjs Framework.framework/Internet Plug-Ins/nacl_irt_x86_64.nexe",
+  "./Contents/Versions/52.0.2743.116/nwjs Framework.framework/Internet Plug-Ins/pnacl/pnacl_public_x86_64_ld_nexe",
+  "./Contents/Versions/52.0.2743.116/nwjs Framework.framework/Internet Plug-Ins/pnacl/pnacl_public_x86_64_pnacl_llc_nexe",
+  "./Contents/Versions/52.0.2743.116/nwjs Framework.framework/Internet Plug-Ins/pnacl/pnacl_public_x86_64_pnacl_sz_nexe",
+  "./Contents/Versions/52.0.2743.116/nwjs Framework.framework/libffmpeg.dylib",
+  "./Contents/Versions/52.0.2743.116/nwjs Framework.framework/libnode.dylib",
+  "./Contents/Versions/52.0.2743.116/nwjs Framework.framework/nwjs Framework",
+  "./Contents/Versions/52.0.2743.116/nwjs Framework.framework/Resources/app_mode_loader.app/Contents/MacOS/app_mode_loader",
+  "./Contents/Versions/52.0.2743.116/nwjs Framework.framework/Resources/install.sh",
+  "./Contents/Versions/52.0.2743.116/nwjs Helper.app/Contents/MacOS/nwjs Helper" ]
